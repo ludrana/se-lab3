@@ -16,6 +16,7 @@ namespace Client
                 await socket.ConnectAsync("127.0.0.1", 8888);
                 string message = "";
                 string method = "0";
+                byte[] messageBytes;
                 while (!("123".Contains(method) || method == "exit"))
                 {
                     Console.Write("Enter action (1 - get a file, 2 - create a file, 3 - delete a file): > ");
@@ -44,26 +45,74 @@ namespace Client
                 }
                 if (method != "exit")
                 {
-                    string filename = "";
-                    do
+                    if (method == "3")
                     {
-                        Console.Write("Enter filename: > ");
-                        filename = Console.ReadLine() ?? "";
-                        if (!IsFileNameValid(filename))
+                        var nameOrId = "0";
+                        while ("12".Contains(nameOrId))
                         {
-                            Console.WriteLine("Invalid file name");
+                            Console.Write("Do you want to delete the file by name or by id (1 - name, 2 - id): > ");
+                            nameOrId = Console.ReadLine() ?? "0";
+                            if (nameOrId == "1")
+                            {
+                                message += "BY_NAME ";
+                                message += AddFilenameOrId();
+                            }
+                            else if (nameOrId == "2")
+                            {
+                                message += "BY_ID ";
+                                message += AddFilenameOrId(false);
+                            } 
+                            else
+                            {
+                                method = "0";
+                                Console.WriteLine("Invalid action");
+                            }
                         }
-                    } while (!IsFileNameValid(filename));
-                    message += filename + " ";
-                    if (method == "2")
+                    }
+                    if (method == "1")
                     {
-                        Console.Write("Enter file content: > ");
-                        message += Console.ReadLine();
+                        var nameOrId = "0";
+                        while ("12".Contains(nameOrId))
+                        {
+                            Console.Write("Do you want to get the file by name or by id (1 - name, 2 - id): > ");
+                            nameOrId = Console.ReadLine() ?? "0";
+                            if (nameOrId == "1")
+                            {
+                                message += "BY_NAME ";
+                                message += AddFilenameOrId();
+                            }
+                            else if (nameOrId == "2")
+                            {
+                                message += "BY_ID ";
+                                message += AddFilenameOrId(false);
+                            }
+                            else
+                            {
+                                method = "0";
+                                Console.WriteLine("Invalid action");
+                            }
+                        }
+                    }
+                    if (method == "2") // upload files TODO
+                    {
+
+                        var filename = AddFilenameOrId();
+                        message += filename;
+                        messageBytes = Encoding.UTF8.GetBytes(message);
+                        await socket.SendAsync(messageBytes);
+                        Console.WriteLine("The request was sent");
+
+
+                        // Console.Write("Enter file content: > ");
+                        // message += Console.ReadLine();
+                        await socket.SendAsync(File.ReadAllBytes(filename));
+
+
                     }
                 }
-                var messageBytes = Encoding.UTF8.GetBytes(message);
-                await socket.SendAsync(messageBytes);
-                Console.WriteLine("The request was sent");
+                // messageBytes = Encoding.UTF8.GetBytes(message);
+                // await socket.SendAsync(messageBytes);
+                // Console.WriteLine("The request was sent");
 
                 var responseBytes = new byte[512];
                 var builder = new StringBuilder();
@@ -76,7 +125,7 @@ namespace Client
                 }
                 while (bytes > 0);
 
-
+                // responses
                 var response = builder.ToString().Split(' ', 2);
                 if (response[0] == "200")
                 {
@@ -88,7 +137,7 @@ namespace Client
                     }
                     if (method == "2")
                     {
-                        Console.WriteLine("The response says that the file was created");
+                        Console.WriteLine($"The response says that the file was created. ID = {response[1]}");
                     }
                     if (method == "3")
                     {
@@ -121,6 +170,9 @@ namespace Client
                 if (string.IsNullOrEmpty(file))
                     return false;
 
+                if (file.Contains(' '))
+                    return false;
+
                 if (file.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
                     return false;
 
@@ -136,6 +188,38 @@ namespace Client
             catch
             {
                 return false;
+            }
+        }
+
+        public static string AddFilenameOrId(bool isFile = true)
+        {
+            if (isFile)
+            {
+                string filename;
+                do
+                {
+                    Console.Write("Enter filename: > ");
+                    filename = Console.ReadLine() ?? "";
+                    if (!IsFileNameValid(filename))
+                    {
+                        Console.WriteLine("Invalid file name");
+                    }
+                } while (!IsFileNameValid(filename));
+                return filename;
+            } 
+            else
+            {
+                string id;
+                do
+                {
+                    Console.Write("Enter filename: > ");
+                    id = Console.ReadLine() ?? "";
+                    if (!int.TryParse(id, out _))
+                    {
+                        Console.WriteLine("Invalid file name");
+                    }
+                } while (!int.TryParse(id, out _));
+                return id;
             }
         }
     }
